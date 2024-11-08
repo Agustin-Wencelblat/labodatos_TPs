@@ -1,0 +1,7 @@
+TP 1 - Correciones Realizadas:
+- Emprolijo el informe, elimino informacion redundante en algunas secciones.
+- Aclaro algunos nombres de atributos en el DER
+- Hago un diagrama para el modelo entidad-relacion
+- Reviso algunos de los reportes generados usando consultas SQL
+- Mejoramos visualizaciones
+- Completo visualizaciones faltantes
