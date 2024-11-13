@@ -6,7 +6,7 @@ TP 1 - Correciones Realizadas:
 - Se separa el atributo de redes sociales en una entidad propia relacionada a sedes.
 - Se incluye el codigo perteneciente a la exportacion de datos.
 - Revisa algunos de los reportes generados usando consultas SQL por codigo erroneo.
-- Se mejoran las visualizaciones existentes.
+- Se mejoran las visualizaciones existentes. En particular, para la consigna III, se cambia por un boxplot como se discutio.
 - Se completan las visualizaciones faltantes.
 
 Notar: 
