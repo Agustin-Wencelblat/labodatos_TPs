@@ -1,7 +1,10 @@
 TP 1 - Correciones Realizadas:
-- Emprolijo el informe, elimino informacion redundante en algunas secciones.
-- Aclaro algunos nombres de atributos en el DER
-- Hago un diagrama para el modelo entidad-relacion
-- Reviso algunos de los reportes generados usando consultas SQL
-- Mejoramos visualizaciones
-- Completo visualizaciones faltantes
+- Emprolijar el informe, se elimina informacion redundante en algunas secciones y se agrega contexto a otras.
+- Mejora claridad en la seccion que habla de las formas normales.
+- Se reformula el DER, mejorando la claridad de algunos nombres.
+- Se crea un diagrama para el modelo entidad-relacion.
+- Se separa el atributo de redes sociales en una entidad propia relacionada a sedes.
+- Se incluye el codigo perteneciente a la exportacion de datos.
+- Revisa algunos de los reportes generados usando consultas SQL por codigo erroneo.
+- Se mejoran las visualizaciones existentes.
+- Se completan las visualizaciones faltantes.
