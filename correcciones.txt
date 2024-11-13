@@ -8,3 +8,7 @@ TP 1 - Correciones Realizadas:
 - Revisa algunos de los reportes generados usando consultas SQL por codigo erroneo.
 - Se mejoran las visualizaciones existentes.
 - Se completan las visualizaciones faltantes.
+
+Notar: 
+- No llegue a corregir la parte de GQM que habias charlado, pues no pude identificar problemas de calidad asociados a los atributos que usamos en el analisis.
+- Ambos companeros dejaron la materia, asi que hice la reentrega solo.
