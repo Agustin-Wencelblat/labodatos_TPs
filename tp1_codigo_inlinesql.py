@@ -12,11 +12,11 @@ from inline_sql import sql, sql_val
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-carpeta = "D:/Facultad/Laboratorio de Datos/TP 1 - inlineSQL/Tablas Limpias/"
-sedes = pd.read_csv(carpeta+'lista-sedes-limpia.csv')
-secciones = pd.read_csv(carpeta+'lista-secciones-limpia.csv')
-migraciones = pd.read_csv(carpeta+'datos_migraciones_limpia.csv')
-datos = pd.read_csv(carpeta+'lista-sedes-datos-limpia.csv')
+carpeta = "/home/Estudiante/Descargas/"
+sedescsv = pd.read_csv(carpeta+'lista-sedes-limpia.csv')
+seccionescsv = pd.read_csv(carpeta+'lista-secciones-limpia.csv')
+migracionescsv = pd.read_csv(carpeta+'datos_migraciones_limpia.csv')
+datoscsv = pd.read_csv(carpeta+'lista-sedes-datos-limpia.csv')
 
 #%%
 ###############
@@ -25,17 +25,17 @@ datos = pd.read_csv(carpeta+'lista-sedes-datos-limpia.csv')
 
 seccion = sql^"""
 SELECT sede_id, sede_desc_castellano
-FROM secciones
+FROM seccionescsv
 """
 
 sede = sql^"""
 SELECT sede_id, pais_iso_3
-FROM datos
+FROM datoscsv
 """
 
 pais = sql^"""
 SELECT DISTINCT pais_iso_3, region_geografica, pais_castellano
-FROM datos
+FROM datoscsv
 """
 
 redes = sql^"""
@@ -44,15 +44,17 @@ SELECT sede_id,
            WHEN red_social LIKE '%twitter%' THEN 'Twitter'
            WHEN red_social LIKE '%facebook%' THEN 'Facebook'
            WHEN red_social LIKE '%instagram%' THEN 'Instagram'
+           WHEN red_social LIKE '%youtube%' THEN 'Youtube'
+           WHEN red_social LIKE '%linkedin%' THEN 'LinkedIn'
            ELSE 'Otra'
        END AS red_social_nombre,
        TRIM(red_social) AS red_social_link
 FROM (
-    -- Divide la columna redes_sociales en múltiples filas por sede_id
     SELECT sede_id, UNNEST(STRING_TO_ARRAY(redes_sociales, ' // ')) AS red_social
-    FROM lista_sedes_datos
+    FROM datoscsv
+    WHERE redes_sociales IS NOT NULL AND redes_sociales <> ''
 ) AS social_links
-WHERE red_social IS NOT NULL AND red_social <> '';
+WHERE red_social IS NOT NULL AND TRIM(red_social) <> '';
 """
 
 migraciones=sql^"""
@@ -63,7 +65,7 @@ SELECT DISTINCT "Country Dest Code" AS codigo_pais_destino,
        "1980 [1980]" AS migracion_1980,
        "1990 [1990]" AS migracion_1990,
        "2000 [2000]" AS migracion_2000
-FROM datos_migraciones;
+FROM migracionescsv;
 """
 #%%
 ###############
@@ -72,29 +74,54 @@ FROM datos_migraciones;
 
 # Consigna I: 
     
+migraciones_limpias = sql^"""
+SELECT 
+    codigo_pais_destino,
+    codigo_pais_origen,
+    CASE 
+        WHEN migracion_2000 = '..' THEN NULL
+        ELSE CAST(migracion_2000 AS INTEGER)
+    END AS migracion_2000
+FROM migraciones
+"""
+
+secciones_por_sede = sql^"""
+SELECT 
+    sede_id, 
+    COUNT(*) AS num_secciones
+FROM seccion
+GROUP BY sede_id
+"""
+
+flujo_migratorio_neto = sql^"""
+SELECT 
+    p.pais_castellano AS pais,
+    SUM(CASE 
+            WHEN m.codigo_pais_destino = p.pais_iso_3 THEN m.migracion_2000
+            WHEN m.codigo_pais_origen = p.pais_iso_3 THEN -m.migracion_2000
+            ELSE 0
+        END) AS flujo_migratorio
+FROM pais AS p
+LEFT JOIN migraciones_limpias AS m 
+    ON m.codigo_pais_destino = p.pais_iso_3 OR m.codigo_pais_origen = p.pais_iso_3
+GROUP BY p.pais_castellano
+"""
+
 consigna1 = sql^"""
 SELECT 
     p.pais_castellano AS pais,
     COUNT(DISTINCT s.sede_id) AS cantidad_sedes,
-    AVG(seccion_count.num_secciones) AS promedio_secciones,
-    SUM(CASE 
-            WHEN m.codigo_pais_destino = p.pais_iso_3 THEN m.migracion_2000
-            WHEN m.codigo_pais_origen = p.pais_iso_3 THEN -m.migracion_2000
-            ELSE 0 
-        END) AS flujo_migratorio_neto
+    AVG(sc.num_secciones) AS promedio_secciones,
+    fm.flujo_migratorio AS flujo_migratorio_neto
 FROM pais AS p
 LEFT JOIN sede AS s ON p.pais_iso_3 = s.pais_iso_3
-LEFT JOIN (
-    SELECT sede_id, COUNT(*) AS num_secciones
-    FROM seccion
-    GROUP BY sede_id
-) AS seccion_count ON s.sede_id = seccion_count.sede_id
-LEFT JOIN migraciones AS m 
-    ON m.codigo_pais_destino = p.pais_iso_3 OR m.codigo_pais_origen = p.pais_iso_3
-GROUP BY p.pais_castellano
-ORDER BY cantidad_sedes DESC, pais ASC;
+LEFT JOIN secciones_por_sede AS sc ON s.sede_id = sc.sede_id
+LEFT JOIN flujo_migratorio_neto AS fm ON p.pais_castellano = fm.pais
+GROUP BY p.pais_castellano, fm.flujo_migratorio
+ORDER BY cantidad_sedes DESC, pais ASC
 """
 
+# consigna1.to_csv('Reporte1.csv', index=False)
 #%% Consigna II: 
     
 consigna2 = sql^"""
@@ -102,7 +129,7 @@ SELECT
     p.region_geografica AS region,
     COUNT(DISTINCT p.pais_iso_3) AS cantidad_paises_con_sede,
     AVG(CASE 
-            WHEN m.codigo_pais_destino = p.pais_iso_3 THEN m.migracion_2000
+            WHEN m.codigo_pais_destino = p.pais_iso_3 THEN CAST(NULLIF(m.migracion_2000, '..') AS INTEGER)
             ELSE NULL 
         END) AS promedio_flujo_migratorio_2000
 FROM pais AS p
@@ -112,6 +139,7 @@ GROUP BY p.region_geografica
 ORDER BY promedio_flujo_migratorio_2000 DESC;
 """
 
+# consigna2.to_csv('Reporte2.csv', index=False)
 #%% Consigna III:
     
 consigna3 = sql^"""
@@ -125,11 +153,12 @@ GROUP BY p.pais_castellano
 ORDER BY cantidad_tipos_redes DESC;
 """
 
+# consigna3.to_csv('Reporte3.csv', index=False)
 #%% Consigna IV: 
-consigna3 = sql^"""
+consigna4 = sql^"""
 SELECT 
     p.pais_castellano AS pais,
-    s.sede_desc_castellano AS sede,
+    s.sede_id AS sede,  consigna3.to_csv('Reporte3.
     r.red_social_nombre AS tipo_red_social,
     r.red_social_link AS url
 FROM redes AS r
@@ -137,6 +166,8 @@ JOIN sede AS s ON r.sede_id = s.sede_id
 JOIN pais AS p ON s.pais_iso_3 = p.pais_iso_3
 ORDER BY pais ASC, sede ASC, tipo_red_social ASC, url ASC;
 """
+
+# consigna4.to_csv('Reporte4.csv', index=False)
 #%%
 ###############
 # Ejercicio I #
@@ -168,13 +199,20 @@ plt.show()
 promedios_flujo_region = sql^"""
 SELECT 
     p.region_geografica AS region,
-    AVG((m.migracion_1960 + m.migracion_1970 + m.migracion_1980 + m.migracion_1990 + m.migracion_2000) / 5) AS promedio_flujo_migratorio
+    m.codigo_pais_destino AS codigo_pais_destino,
+    AVG((
+        COALESCE(CAST(NULLIF(m.migracion_1960, '..') AS FLOAT), 0) + 
+        COALESCE(CAST(NULLIF(m.migracion_1970, '..') AS FLOAT), 0) + 
+        COALESCE(CAST(NULLIF(m.migracion_1980, '..') AS FLOAT), 0) + 
+        COALESCE(CAST(NULLIF(m.migracion_1990, '..') AS FLOAT), 0) + 
+        COALESCE(CAST(NULLIF(m.migracion_2000, '..') AS FLOAT), 0)
+    ) / 5) AS promedio_flujo_migratorio
 FROM migraciones AS m
 JOIN sede AS s ON m.codigo_pais_destino = s.pais_iso_3
 JOIN pais AS p ON s.pais_iso_3 = p.pais_iso_3
 WHERE m.codigo_pais_origen = 'ARG'
 GROUP BY p.region_geografica, m.codigo_pais_destino
-ORDER BY p.region_geografica;
+ORDER BY p.region_geografica, promedio_flujo_migratorio;
 """
 
 plt.figure(figsize=(12, 6))
@@ -191,18 +229,29 @@ plt.show()
 flujo_sedes = sql^"""
 SELECT 
     p.pais_castellano AS pais,
-    m.migracion_2000 AS flujo_migratorio_2000,
-    COUNT(s.sede_id) AS cantidad_sedes
+    CAST(m.migracion_2000 AS FLOAT) AS flujo_migratorio_2000,
+    COUNT(s.sede_id) AS cantidad_sedes,
+    (CAST(m.migracion_2000 AS FLOAT) / NULLIF(COUNT(s.sede_id), 0)) AS relacion_flujo_sedes
 FROM migraciones AS m
 LEFT JOIN sede AS s ON m.codigo_pais_destino = s.pais_iso_3
 LEFT JOIN pais AS p ON s.pais_iso_3 = p.pais_iso_3
 WHERE m.codigo_pais_origen = 'ARG'
+  AND m.migracion_2000 <> '..'  -- Excluir los valores no numéricos
+  AND m.migracion_2000 IS NOT NULL -- Excluir valores nulos
 GROUP BY p.pais_castellano, m.migracion_2000
-HAVING flujo_migratorio_2000 IS NOT NULL
-ORDER BY flujo_migratorio_2000 DESC;
+HAVING m.migracion_2000 IS NOT NULL
+ORDER BY relacion_flujo_sedes DESC;
 """
 
 plt.figure(figsize=(10, 6))
+sns.scatterplot(data=flujo_sedes, x='cantidad_sedes', y='flujo_migratorio_2000', palette='Set1')
+plt.title('Relación entre el Flujo Migratorio hacia Argentina (Año 2000) y la Cantidad de Sedes en el Exterior')
+plt.xlabel('Cantidad de Sedes de Argentina')
+plt.ylabel('Flujo Migratorio hacia Argentina (Año 2000)')
+plt.tight_layout()
+plt.show()
+
+plt.figure(figsize=(12, 6))
 sns.boxplot(data=flujo_sedes, x='cantidad_sedes', y='flujo_migratorio_2000', palette='Set3')
 plt.title('Distribución del Flujo Migratorio hacia Argentina (Año 2000) por Cantidad de Sedes en el Exterior')
 plt.xlabel('Cantidad de Sedes de Argentina')
